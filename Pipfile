@@ -27,6 +27,8 @@ databases = "*"
 python-dotenv = "*"
 colorlog = "*"
 httpx = "*"
+datetime = "*"
+csv = "*"
 
 [requires]
 python_version = "3.8"
