@@ -61,15 +61,27 @@ async def get_zipcode_risk_factor(request: Request, zipcode: int):
 
         # TODO ZIPCODE_3
         # Validate if the zipcode entered is in the dataset
+        risk_factor = ""
         for item in data:
             if "-" in item[0]:
                 item[0].split(" - ")
-                if zipcode > item[0][0] and zipcode < item[0][1]:
-                    pass
-
+                if zipcode > int(item[0][0]) and zipcode < int(item[0][1]):
+                    risk_factor = item[1]
+                    continue
+                else:
+                    response.status_code = 400
+                    return None
+            elif zipcode == int(item[0]):
+                risk_factor = item[1]
+                continue
+            else:
+                response.status_code = 400
+                return None
 
         # TODO ZIPCODE_4
         # Formulate appropriate response
+        response.status_code = 200
+        return {"risk_factor": risk_factor}
 
 
 async def get_zipcode_risk_factor_from_database(request: Request, zipcode: int):
