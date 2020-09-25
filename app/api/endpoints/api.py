@@ -1,8 +1,10 @@
 from __future__ import absolute_import
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from starlette.requests import Request
+from starlette.responses import Response
+import requests
 
 from app.models.zipcode import ZipCodeRiskFactor
 
@@ -19,32 +21,28 @@ async def get_index(request: Request, year: int = 2004):
     # Make sure only 1996, 2004 and 2013 are valid
     # https://fastapi.tiangolo.com/tutorial/handling-errors/
     # tip: from fastapi import HTTPException
-    if year in {1996, 2004, 2013}:
-        # TODO INDEX_2
-        # Retrieve the latest index from external source for given base year
-        # https://statbel.fgov.be/en/themes/consumer-prices/health-index
-        index = 100.00
+    if year not in {1996, 2004, 2013}:
+        raise HTTPException(status_code=404, detail="WRONG_YEAR")
 
+    # TODO INDEX_2
+    # Retrieve the latest index from external source for given base year
+    # https://statbel.fgov.be/en/themes/consumer-prices/health-index
+    index = 100.00
 
-        d = datetime.datetime.now()
-        m = int(d.strftime("%m")) - 1
+    d = datetime.datetime.now()
+    m = int(d.strftime("%m")) - 1
 
-        url = "https://indexpub.economie.fgov.be/indexpub/api/ng-indsearch/get-consumer-health-index/{}/2020/IS".format(m)
+    url = "https://indexpub.economie.fgov.be/indexpub/api/ng-indsearch/get-consumer-health-index/{}/2020/IS".format(m)
 
-        data = Request.get(url).json()
-   
-        # TODO INDEX_3
-        # Format and return the response
-        for item in data:
-            if item["base"]["code"] == str(year):
-                index = item["value"]
-        
-        response.status_code = 200
-        return {"index": index}
-    else:
-        response.status_code = 400
-        return None
+    data = requests.get(url).json()
 
+    # TODO INDEX_3
+    # Format and return the response
+    for item in data:
+        if item["base"]["code"] == str(year):
+            index = item["value"]
+
+    return {"index": index}
 
 async def get_zipcode_risk_factor(request: Request, zipcode: int):
     import csv
@@ -52,36 +50,33 @@ async def get_zipcode_risk_factor(request: Request, zipcode: int):
     # TODO ZIPCODE_1
     # Validate if the zipcode entered has the correct format
     # (integer between 1000 and 9999)
-    if zipcode > 1000 and zipcode < 9999:
-        # TODO ZIPCODE_2
-        # Read the file app.data.zipcodes.csv and format data
-        with open('../../data/zipcodes.csv', newline='') as f:
-            reader = csv.reader(f)
-            data = list(reader)
+    if zipcode < 1000 or zipcode > 9999:
+        raise HTTPException(status_code=404, detail="ZIPCODE_NOT_VALID")
+    # TODO ZIPCODE_2
+    # Read the file app.data.zipcodes.csv and format data
+    with open('app\data\zipcodes.csv', newline='') as f:
+        reader = csv.reader(f)
+        data = list(reader)
 
-        # TODO ZIPCODE_3
-        # Validate if the zipcode entered is in the dataset
-        risk_factor = ""
-        for item in data:
-            if "-" in item[0]:
-                item[0].split(" - ")
-                if zipcode > int(item[0][0]) and zipcode < int(item[0][1]):
-                    risk_factor = item[1]
-                    continue
-                else:
-                    response.status_code = 400
-                    return None
-            elif zipcode == int(item[0]):
+    # TODO ZIPCODE_3
+    # Validate if the zipcode entered is in the dataset
+    risk_factor = ""
+    for item in data:
+        if "-" in item[0]:
+            item[0] = item[0].split(" - ")
+            if zipcode >= int(item[0][0]) and zipcode <= int(item[0][1]):
                 risk_factor = item[1]
                 continue
-            else:
-                response.status_code = 400
-                return None
+        elif zipcode == int(item[0]):
+            risk_factor = item[1]
+            continue
+    
+    if risk_factor == "":
+        raise HTTPException(status_code=400, detail="ZIPCODE_NOT_VALID")
 
-        # TODO ZIPCODE_4
-        # Formulate appropriate response
-        response.status_code = 200
-        return {"risk_factor": risk_factor}
+    # TODO ZIPCODE_4
+    # Formulate appropriate response
+    return {"risk_factor": "{}".format(risk_factor)}
 
 
 async def get_zipcode_risk_factor_from_database(request: Request, zipcode: int):

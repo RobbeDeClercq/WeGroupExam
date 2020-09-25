@@ -39,7 +39,7 @@ def test_zipcode():
     response = client.get("/zipcode/9000")
     assert response.status_code == 200
     assert response.json() == {"risk_factor": "B"}
-
+    
 
 def test_zipcode_too_high():
     response = client.get("/zipcode/10000")
